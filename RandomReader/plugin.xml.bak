@@ -15,5 +15,6 @@
 		<source-file src="src/android/ProductInfo.java" target-dir="src/com/cfcc/deptone/randomreaderplugin/ProductInfo" />
 		<source-file src="src/android/ProductWrap.java" target-dir="src/com/cfcc/deptone/randomreaderplugin/ProductWrap" />
 		<source-file src="src/android/RandomReader.java" target-dir="src/com/cfcc/deptone/randomreaderplugin/RandomReader" />
+		
 	</platform>
 </plugin>

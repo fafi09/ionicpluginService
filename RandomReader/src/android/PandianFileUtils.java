@@ -1,0 +1,416 @@
+package com.cfcc.deptone.randomreaderplugin;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.RandomAccessFile;
+import java.nio.charset.Charset;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import android.app.ProgressDialog;
+import android.os.Bundle;
+import android.os.Environment;
+import android.os.Handler;
+import android.os.Message;
+import android.util.Log;
+
+import com.cfcc.deptone.randomreaderplugin.AssetConstants;
+import com.cfcc.deptone.randomreaderplugin.Product;
+import com.cfcc.deptone.randomreaderplugin.ProductInfo;
+import com.cfcc.deptone.randomreaderplugin.ProductWrap;
+
+public class PandianFileUtils {
+
+    private static final String TAG = PandianFileUtils.class.getSimpleName();
+
+    /**
+     * 根据key查询记录
+     *
+     * @param code
+     * @return
+     */
+    public static Product searchRecordbyCode(String code, String filePath) {
+        RandomAccessFile random = null;
+        Product product = null;
+        try {
+            random = new RandomAccessFile(filePath, "rw");
+
+            product = binarySearch(random, code);
+
+        } catch (FileNotFoundException e) {
+            Log.e(TAG, e.getMessage());
+            //Logger.e(e.getMessage());
+        } catch (IOException e) {
+            Log.e(TAG, e.getMessage());
+            //Logger.e(e.getMessage());
+        } finally {
+            if (random != null) {
+                try {
+                    random.close();
+                } catch (IOException e) {
+                    Log.e(TAG, e.getMessage());
+                    //Logger.e(e.getMessage());
+                }
+                random = null;
+            }
+        }
+        return product;
+    }
+
+    public static void searchRecord(Handler handler, String des, String filePath) {
+        RandomAccessFile random = null;
+        try {
+            random = new RandomAccessFile(filePath, "rw");
+
+            Product product = binarySearch(random, des);
+            if (product != null) {
+                Message msg = handler.obtainMessage();
+                //检索到数据
+                msg.what = AssetConstants.DATA_EXIST;
+                Bundle data = new Bundle();
+                data.putInt(AssetConstants.PRODUCT_COLNAME_POS, product.getPos());
+                data.putString(AssetConstants.PRODUCT_COLNAME_BARCODE, product.getBarCode());
+                data.putString(AssetConstants.PRODUCT_COLNAME_PRODUCTNAME, product.getProductName());
+                data.putString(AssetConstants.PRODUCT_COLNAME_ADDRESS, product.getAddress());
+                data.putString(AssetConstants.PRODUCT_COLNAME_BUILDAREA, product.getBuildArea());
+                data.putString(AssetConstants.PRODUCT_COLNAME_BRAND, product.getBrand());
+                data.putString(AssetConstants.PRODUCT_COLNAME_MODEL, product.getModel());
+                data.putString(AssetConstants.PRODUCT_COLNAME_PASSPORTNO, product.getPassportNo());
+                data.putString(AssetConstants.PRODUCT_COLNAME_PRODUCTNO, product.getProductNo());
+                data.putString(AssetConstants.PRODUCT_COLNAME_ASSETTYPE, product.getAssetType());
+                data.putString(AssetConstants.PRODUCT_COLNAME_PANDIANFLG, product.getCheckinStatus());
+                data.putString(AssetConstants.PRODUCT_COLNAME_PANDIANDATE, product.getPandianDate());
+                data.putString(AssetConstants.PRODUCT_COLNAME_REMARK, product.getRemarks());
+                data.putString(AssetConstants.PRODUCT_COLNAME_SOFTASSETSNAME, product.getSsoftassetsname());
+                data.putString(AssetConstants.PRODUCT_COLNAME_VERSIONNUM, product.getSversionnum());
+                msg.setData(data);
+                msg.sendToTarget();
+            } else {
+                Message msg = handler.obtainMessage();
+                //检索到数据
+                msg.what = AssetConstants.DATA_NO_EXIST;
+                msg.sendToTarget();
+            }
+
+        } catch (FileNotFoundException e) {
+            Log.e(TAG, e.getMessage());
+            //Logger.e(e.getMessage());
+        } catch (IOException e) {
+            Log.e(TAG, e.getMessage());
+            //Logger.e(e.getMessage());
+        } finally {
+            if (random != null) {
+                try {
+                    random.close();
+                } catch (IOException e) {
+                    Log.e(TAG, e.getMessage());
+                    //Logger.e(e.getMessage());
+                }
+                random = null;
+            }
+        }
+    }
+
+
+    public static Product binarySearch(RandomAccessFile random, String des) throws IOException {
+        byte[] cont = new byte[16];
+        long desId = Long.parseLong(des);
+        //定义初始最小、最大索引
+        int low = 0;
+        int high = (int) (random.length() / AssetConstants.LINE_CHARS) - 1;
+        //确保不会出现重复查找，越界
+        while (low <= high) {
+            //计算出中间索引值
+            int middle = (high + low) >>> 1;//防止溢出
+            random.seek(AssetConstants.LINE_CHARS * middle);
+            int s = random.read(cont, 0, 16);
+            String strId = new String(cont);
+            long iId = Long.parseLong(strId);
+            if (desId == iId) {
+                Product product = ProductWrap.getProduct(random, strId, middle);
+                return product;
+                //判断下限
+            } else if (desId < iId) {
+                high = middle - 1;
+                //判断上限
+            } else {
+                low = middle + 1;
+            }
+        }
+        //若没有，则返回-1
+        return null;
+    }
+
+
+    public static List searchRecords(Handler handler, ProgressDialog pd, String des) {
+        List retList = new ArrayList();
+        FileInputStream fis = null;
+        BufferedReader br = null;
+        int pos = 0;
+        int oldProgress = 0;
+        try {
+            File file = new File(Environment.getExternalStorageDirectory().getPath() + File.separator +
+                    AssetConstants.PANDIAN_FILE_NAME);
+            fis = new FileInputStream(file);
+            br = new BufferedReader(new InputStreamReader(fis, Charset.forName(AssetConstants.CONST_ENCODE)));
+            String content = null;
+            Long size = file.length();
+            int line = (int) (size / AssetConstants.LINE_CHARS);
+            while ((content = br.readLine()) != null) {
+                Product product = ProductWrap.getProduct(content, pos);
+                if (des.equals(product.getCheckinStatus())) {
+                    retList.add(product);
+                }
+                pos++;
+                Log.i(TAG, content);
+                int progress = (pos * 100 / line);
+
+                if (oldProgress != progress) {
+                    oldProgress = progress;
+                    Log.e(TAG, "pos:" + pos + " size: " + size + " line:" + line + " progress: " + progress);
+                    pd.setProgress(progress);
+                }
+            }
+
+            pd.cancel();
+
+            Message message = handler.obtainMessage(AssetConstants.ASSET_RECORD_READED, 0, 0);
+            message.sendToTarget();
+        } catch (FileNotFoundException e) {
+            Log.e(TAG, e.getMessage());
+        } catch (IOException e) {
+            Log.e(TAG, e.getMessage());
+        } finally {
+            try {
+                if (br != null) {
+                    br.close();
+                    br = null;
+                }
+                if (fis != null) {
+                    fis.close();
+                    fis = null;
+                }
+            } catch (IOException e) {
+                Log.e(TAG, e.getMessage());
+            }
+        }
+
+
+        return retList;
+
+    }
+
+    public static Map modifyByRandom(Product product, String filePath) {
+        ProductInfo info = new ProductInfo();
+        Map retMap = new HashMap();
+        RandomAccessFile random = null;
+        int pos = 0;
+        int oldProgress = 0;
+        try {
+            random = new RandomAccessFile(filePath, "rw");
+            String content = null;
+            Long size = random.length();
+            int line = (int) (size / AssetConstants.LINE_CHARS);
+            random.seek(AssetConstants.LINE_CHARS * product.getPos());
+            Product oldproduct = ProductWrap.getProduct(random, null, pos);
+
+            //资产名称不一致
+            if (!product.getProductName().trim().equals(oldproduct.getProductName().trim())) {
+                random.seek(AssetConstants.LINE_CHARS * product.getPos());
+                random.skipBytes(info.getProductNameBegin());
+                byte[] byteArray = product.getProductName().getBytes(AssetConstants.CONST_ENCODE);
+                random.write(byteArray, 0, byteArray.length);
+            }
+
+            //地址不一致
+            if (!product.getAddress().trim().equals(oldproduct.getAddress().trim())) {
+                random.seek(AssetConstants.LINE_CHARS * product.getPos());
+                random.skipBytes(info.getAddressBegin());
+                byte[] byteArray = product.getAddress().getBytes(AssetConstants.CONST_ENCODE);
+                random.write(byteArray, 0, byteArray.length);
+            }
+
+            //建筑面积
+            if (!product.getBuildArea().trim().equals(oldproduct.getBuildArea().trim())) {
+                random.seek(AssetConstants.LINE_CHARS * product.getPos());
+                random.skipBytes(info.getBuildAreaBegin());
+                byte[] byteArray = product.getBuildArea().getBytes(AssetConstants.CONST_ENCODE);
+                random.write(byteArray, 0, byteArray.length);
+            }
+
+            //品牌
+            if (!product.getBrand().trim().equals(oldproduct.getBrand().trim())) {
+                random.seek(AssetConstants.LINE_CHARS * product.getPos());
+                random.skipBytes(info.getBrandBegin());
+                byte[] byteArray = product.getBrand().getBytes(AssetConstants.CONST_ENCODE);
+                random.write(byteArray, 0, byteArray.length);
+            }
+
+            //型号
+            if (!product.getModel().trim().equals(oldproduct.getModel().trim())) {
+                random.seek(AssetConstants.LINE_CHARS * product.getPos());
+                random.skipBytes(info.getModelBegin());
+                byte[] byteArray = product.getModel().getBytes(AssetConstants.CONST_ENCODE);
+                random.write(byteArray, 0, byteArray.length);
+            }
+
+            //车辆牌照号
+            if (!product.getPassportNo().trim().equals(oldproduct.getPassportNo().trim())) {
+                random.seek(AssetConstants.LINE_CHARS * product.getPos());
+                random.skipBytes(info.getPassportNoBegin());
+                byte[] byteArray = product.getPassportNo().getBytes(AssetConstants.CONST_ENCODE);
+                random.write(byteArray, 0, byteArray.length);
+            }
+
+            //出厂产品编号
+            if (!product.getProductNo().trim().equals(oldproduct.getProductNo().trim())) {
+                random.seek(AssetConstants.LINE_CHARS * product.getPos());
+                random.skipBytes(info.getProductNoBegin());
+                byte[] byteArray = product.getProductNo().getBytes(AssetConstants.CONST_ENCODE);
+                random.write(byteArray, 0, byteArray.length);
+            }
+
+            //资产类型
+            if (!product.getAssetType().trim().equals(oldproduct.getAssetType().trim())) {
+                random.seek(AssetConstants.LINE_CHARS * product.getPos());
+                random.skipBytes(info.getAssetTypeBegin());
+                byte[] byteArray = product.getAssetType().getBytes(AssetConstants.CONST_ENCODE);
+                random.write(byteArray, 0, byteArray.length);
+            }
+
+            //是否盘点
+            if (!product.getCheckinStatus().trim().equals(oldproduct.getCheckinStatus().trim())) {
+                random.seek(AssetConstants.LINE_CHARS * product.getPos());
+                random.skipBytes(info.getCheckinStatusBegin());
+                byte[] byteArray = product.getCheckinStatus().getBytes(AssetConstants.CONST_ENCODE);
+                random.write(byteArray, 0, byteArray.length);
+            }
+
+            //盘点时间
+            if (!product.getPandianDate().trim().equals(oldproduct.getPandianDate().trim())) {
+                random.seek(AssetConstants.LINE_CHARS * product.getPos());
+                random.skipBytes(info.getPandianDateBegin());
+                byte[] byteArray = product.getPandianDate().getBytes(AssetConstants.CONST_ENCODE);
+                random.write(byteArray, 0, byteArray.length);
+            }
+
+            //备注
+            if (!product.getRemarks().trim().equals(oldproduct.getRemarks().trim())) {
+                random.seek(AssetConstants.LINE_CHARS * product.getPos());
+                random.skipBytes(info.getRemarksBegin());
+                if (AssetConstants.STR_EMPTY.equals(product.getRemarks().trim())) {
+                    byte[] byteArray = AssetConstants.INIT_REMAEK.getBytes(AssetConstants.CONST_ENCODE);
+                    random.write(byteArray, 0, byteArray.length);
+                } else {
+                    byte[] byteArray = getFixedLengthString(product.getRemarks(), info.getRemarksLen()).getBytes(AssetConstants.CONST_ENCODE);
+                    random.write(byteArray, 0, byteArray.length);
+                }
+
+            }
+
+        } catch (FileNotFoundException e) {
+            Log.e(TAG, e.getMessage());
+            //Logger.e(e.getMessage());
+        } catch (IOException e) {
+            Log.e(TAG, e.getMessage());
+            //Logger.e(e.getMessage());
+        } finally {
+            try {
+                if (random != null) {
+                    random.close();
+                    random = null;
+                }
+            } catch (IOException e) {
+                Log.e(TAG, e.getMessage());
+                //Logger.e(e.getMessage());
+            }
+        }
+
+
+        return retMap;
+    }
+
+    public static Product buildProductWithBundle(Bundle bundle) {
+        Product product = new Product();
+
+        int pos = bundle.getInt(AssetConstants.PRODUCT_COLNAME_POS);
+        product.setPos(pos);
+
+        String item = bundle.getString(AssetConstants.PRODUCT_COLNAME_BARCODE);
+        product.setBarCode(item);
+        item = bundle.getString(AssetConstants.PRODUCT_COLNAME_PRODUCTNAME);
+        product.setProductName(item.trim());
+        item = bundle.getString(AssetConstants.PRODUCT_COLNAME_ADDRESS);
+        product.setAddress(item.trim());
+        item = bundle.getString(AssetConstants.PRODUCT_COLNAME_BUILDAREA);
+        product.setBuildArea(item.trim());
+        item = bundle.getString(AssetConstants.PRODUCT_COLNAME_BRAND);
+        product.setBrand(item.trim());
+        item = bundle.getString(AssetConstants.PRODUCT_COLNAME_MODEL);
+        product.setModel(item.trim());
+        item = bundle.getString(AssetConstants.PRODUCT_COLNAME_PASSPORTNO);
+        product.setPassportNo(item.trim());
+        item = bundle.getString(AssetConstants.PRODUCT_COLNAME_PRODUCTNO);
+        product.setProductNo(item.trim());
+        item = bundle.getString(AssetConstants.PRODUCT_COLNAME_PANDIANFLG);
+        product.setCheckinStatus(item.trim());
+        item = bundle.getString(AssetConstants.PRODUCT_COLNAME_PANDIANDATE);
+        product.setPandianDate(item.trim());
+
+
+        item = bundle.getString(AssetConstants.PRODUCT_COLNAME_ASSETTYPE);
+        product.setAssetType(item.trim());
+
+        item = bundle.getString(AssetConstants.PRODUCT_COLNAME_REMARK);
+        product.setRemarks(item.trim());
+
+        return product;
+    }
+
+    public static Bundle buildBundleWithProduct(Product product) {
+        Bundle data = new Bundle();
+
+        data.putInt(AssetConstants.PRODUCT_COLNAME_POS, product.getPos());
+        data.putString(AssetConstants.PRODUCT_COLNAME_BARCODE, product.getBarCode());
+        data.putString(AssetConstants.PRODUCT_COLNAME_PRODUCTNAME, product.getProductName());
+        data.putString(AssetConstants.PRODUCT_COLNAME_ADDRESS, product.getAddress());
+        data.putString(AssetConstants.PRODUCT_COLNAME_BUILDAREA, product.getBuildArea());
+        data.putString(AssetConstants.PRODUCT_COLNAME_BRAND, product.getBrand());
+        data.putString(AssetConstants.PRODUCT_COLNAME_MODEL, product.getModel());
+        data.putString(AssetConstants.PRODUCT_COLNAME_PASSPORTNO, product.getPassportNo());
+        data.putString(AssetConstants.PRODUCT_COLNAME_PRODUCTNO, product.getProductNo());
+        data.putString(AssetConstants.PRODUCT_COLNAME_ASSETTYPE, product.getAssetType());
+        data.putString(AssetConstants.PRODUCT_COLNAME_PANDIANFLG, product.getCheckinStatus());
+        data.putString(AssetConstants.PRODUCT_COLNAME_PANDIANDATE, product.getPandianDate());
+        data.putString(AssetConstants.PRODUCT_COLNAME_REMARK, product.getRemarks());
+        return data;
+    }
+
+    /**
+     * 字符长长度不够，右边补空格
+     *
+     * @param oldStr
+     * @param length
+     * @return
+     */
+    public static String getFixedLengthString(String oldStr, int length) {
+        StringBuffer str = new StringBuffer();
+        if (oldStr == null) {
+            oldStr = "";
+        }
+        str.append(oldStr);
+        if (oldStr.getBytes().length < length) {
+            int tmplength = length - oldStr.getBytes().length;
+            for (int i = 0; i < tmplength; i++) {
+                str.append(" ");
+            }
+        }
+        return str.toString();
+    }
+}

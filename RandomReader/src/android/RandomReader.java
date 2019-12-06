@@ -41,6 +41,10 @@ public class RandomReader extends CordovaPlugin {
             String orderInfo = args.getString(0);
             hello(orderInfo,callbackContext);
             return true;
+        } else if("randomReaderByKey".equals(action)) {
+            String key = args.getString(0);
+            String filePath = args.getString(1);
+            randomReaderByKey(key,filePath,callbackContext);
         }
         return false;
     }
@@ -55,5 +59,18 @@ public class RandomReader extends CordovaPlugin {
 
         //原生代码，放在js回调后面，否则js回调不执行
         Toast.makeText(this.activity, hello, Toast.LENGTH_SHORT).show();
+    }
+    
+    public void randomReaderByKey(String key, String filePath, CallbackContext callbackContext){
+        //执行js中传过来的回调
+        if(key!=null && key.length()>0){
+            Product product = PandianFileUtils.searchRecordbyCode(key, filePath);
+            if(product == null)
+            	callbackContext.success("key:"+key+"filepath:"+filePath+"linechars:"+String.valueOf(AssetConstants.LINE_CHARS));
+            else
+            	callbackContext.success(product.toString());
+        }else{
+            callbackContext.error("参数不能为空");
+        }
     }
 }
