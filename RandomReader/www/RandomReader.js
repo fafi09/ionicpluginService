@@ -8,4 +8,9 @@ randomReaderApi.hello = function (arg0, success, error) {
 randomReaderApi.randomReaderByKey = function(arg0,arg1, success, error) {
     exec(success, error, 'RandomReader', 'randomReaderByKey', [arg0,arg1]);
 };
+
+randomReaderApi.fileReaderRecords = function(arg0, success, error) {
+    exec(success, error, 'RandomReader', 'fileReaderRecords', [arg0]);
+};
+
 module.exports = randomReaderApi;
