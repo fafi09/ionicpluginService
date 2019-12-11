@@ -10,6 +10,7 @@ import org.apache.cordova.CordovaPlugin;
 import org.apache.cordova.CordovaWebView;
 import org.json.JSONArray;
 import org.json.JSONException;
+import java.io.Exception;
 
 /**
  * Created by Administrator on 2019/12/2.
@@ -63,14 +64,33 @@ public class RandomReader extends CordovaPlugin {
     
     public void randomReaderByKey(String key, String filePath, CallbackContext callbackContext){
         //执行js中传过来的回调
+        String iniFilepath = filePath.substring(7);
         if(key!=null && key.length()>0){
-            Product product = PandianFileUtils.searchRecordbyCode(key, filePath);
+            Product product = PandianFileUtils.searchRecordbyCode(key, iniFilepath);
             if(product == null)
-            	callbackContext.success("key:"+key+"filepath:"+filePath);
+            	callbackContext.success("key:"+key+"filepath:"+iniFilepath+"linechars:"+String.valueOf(AssetConstants.LINE_CHARS));
             else
             	callbackContext.success(product.toString());
         }else{
             callbackContext.error("参数不能为空");
         }
+    }
+    
+    public void fileReaderRecords(String filePath, CallbackContext callbackContext){
+        //执行js中传过来的回调
+        try {
+	        String iniFilepath = filePath.substring(7);
+	        if(key!=null && key.length()>0){
+	            List products = PandianFileUtils.searchByBufferedEachLine(iniFilepath, AssetConstants.PANDIAN);
+	            if(products == null)
+	            	callbackContext.success("key:"+key+"filepath:"+iniFilepath+"linechars:"+String.valueOf(AssetConstants.LINE_CHARS));
+	            else
+	            	callbackContext.success(products.toString());
+	        }else{
+	            callbackContext.error("参数不能为空");
+	        }
+	      } catch(Exception e) {
+	      	callbackContext.error(e.getMessage());
+	    	}
     }
 }

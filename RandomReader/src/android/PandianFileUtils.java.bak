@@ -416,7 +416,7 @@ public class PandianFileUtils {
         return str.toString();
     }
     
-    public List searchByBufferedEachLine(String filePath, String... params) throws Exception {
+    private List searchByBufferedEachLine(String filePath, String... params) throws Exception {
 			List retList = new ArrayList();
 			FileInputStream fis = null;
 			//BufferedReader br = null;
