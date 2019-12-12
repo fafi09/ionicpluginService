@@ -10,7 +10,7 @@ import org.apache.cordova.CordovaPlugin;
 import org.apache.cordova.CordovaWebView;
 import org.json.JSONArray;
 import org.json.JSONException;
-import java.io.Exception;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -47,6 +47,9 @@ public class RandomReader extends CordovaPlugin {
             String key = args.getString(0);
             String filePath = args.getString(1);
             randomReaderByKey(key,filePath,callbackContext);
+        }	else if("fileReaderRecords".equals(action)) {
+            String filePath = args.getString(0);
+            fileReaderRecords(filePath,callbackContext);
         }
         return false;
     }
@@ -81,10 +84,12 @@ public class RandomReader extends CordovaPlugin {
         //执行js中传过来的回调
         try {
 	        String iniFilepath = filePath.substring(7);
-	        if(key!=null && key.length()>0){
-	            List products = PandianFileUtils.searchByBufferedEachLine(iniFilepath, AssetConstants.PANDIAN);
+	        if(filePath!=null && filePath.length()>0){
+	        		List<String> params = new ArrayList<String>();
+	        		params.add(AssetConstants.PANDIAN);
+	            List products = PandianFileUtils.searchByBufferedEachLine(iniFilepath, params);
 	            if(products == null)
-	            	callbackContext.success("key:"+key+"filepath:"+iniFilepath+"linechars:"+String.valueOf(AssetConstants.LINE_CHARS));
+	            	callbackContext.success("filepath:"+iniFilepath+"linechars:"+String.valueOf(AssetConstants.LINE_CHARS));
 	            else
 	            	callbackContext.success(products.toString());
 	        }else{

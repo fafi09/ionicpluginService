@@ -6,7 +6,6 @@ import java.io.FileInputStream;
 import java.io.BufferedInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.Exception;
 import java.io.InputStreamReader;
 import java.io.RandomAccessFile;
 import java.nio.charset.Charset;
@@ -416,7 +415,7 @@ public class PandianFileUtils {
         return str.toString();
     }
     
-    public List searchByBufferedEachLine(String filePath, String... params) throws Exception {
+    public static List searchByBufferedEachLine(String filePath, List params) throws Exception {
 			List retList = new ArrayList();
 			FileInputStream fis = null;
 			//BufferedReader br = null;
@@ -438,12 +437,12 @@ public class PandianFileUtils {
 					Product product = ProductWrap.getProduct(content, pos);
 					content = null;
 					//Log.d(TAG,"pandian: "+product.getCheckinStatus());
-					if(params.length == 2) {
-						if(params[0].equals(product.getCheckinStatus()) || params[1].equals(product.getCheckinStatus())) {
+					if(params.size() == 2) {
+						if(params.get(0).equals(product.getCheckinStatus()) || params.get(1).equals(product.getCheckinStatus())) {
 							retList.add(product);
 						}
-					} else if(params.length == 1) {
-						if(params[0].equals(product.getCheckinStatus())) {
+					} else if(params.size() == 1) {
+						if(params.get(0).equals(product.getCheckinStatus())) {
 							retList.add(product);
 						}
 					}
